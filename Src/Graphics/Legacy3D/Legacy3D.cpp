@@ -857,7 +857,7 @@ void CLegacy3D::RenderViewport(UINT32 addr, int pri, bool wideScreen)
     viewportY      = yOffs + (GLint) ((float)(384-(vpY+vpHeight))*yRatio);
     viewportWidth  = totalXRes;
     viewportHeight = (GLint) ((float)vpHeight*yRatio);
-    gluPerspective(fovYDegrees,(GLfloat)viewportWidth/(GLfloat)viewportHeight,0.1f,1e5);  // use actual full screen ratio to get proper X FOV
+    //gluPerspective(fovYDegrees,(GLfloat)viewportWidth/(GLfloat)viewportHeight,0.1f,1e5);  // use actual full screen ratio to get proper X FOV
     //printf("viewportX=%d, viewportY=%d, viewportWidth=%d, viewportHeight=%d\tvpY=%d vpHeight=%d\n", viewportX, viewportY, viewportWidth, viewportHeight, vpY,vpHeight);
   }
   else
@@ -866,7 +866,7 @@ void CLegacy3D::RenderViewport(UINT32 addr, int pri, bool wideScreen)
     viewportY      = yOffs + (GLint) ((float)(384-(vpY+vpHeight))*yRatio);
     viewportWidth  = (GLint) ((float)vpWidth*xRatio);
     viewportHeight = (GLint) ((float)vpHeight*yRatio);
-    gluPerspective(fovYDegrees,(GLdouble)vpWidth/(GLdouble)vpHeight,0.1,1e5);        // use Model 3 viewport ratio
+    //gluPerspective(fovYDegrees,(GLdouble)vpWidth/(GLdouble)vpHeight,0.1,1e5);        // use Model 3 viewport ratio
   }
   
   // Lighting (note that sun vector points toward sun -- away from vertex)

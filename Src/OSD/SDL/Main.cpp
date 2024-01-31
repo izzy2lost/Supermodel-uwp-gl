@@ -64,6 +64,8 @@
  * - DEBUG: Debug mode (use with caution, produces large logs of game behavior)
  */
 
+#include <SDL.h>
+
 #include <new>
 #include <cmath>
 #include <cstdio>
@@ -100,6 +102,8 @@
 #include "Util/BMPFile.h"
 
 #include "Crosshair.h"
+
+#include "FilePicker.h"
 
 /******************************************************************************
  Global Run-time Config
@@ -920,6 +924,7 @@ int Supermodel(const Game &game, ROMSet *rom_set, IEmulator *Model3, CInputs *In
   // Set the video mode
   char baseTitleStr[128];
   char titleStr[128];
+  
   totalXRes = xRes = s_runtime_config["XResolution"].ValueAs<unsigned>();
   totalYRes = yRes = s_runtime_config["YResolution"].ValueAs<unsigned>();
   sprintf(baseTitleStr, "Supermodel - %s", game.title.c_str());
@@ -1482,12 +1487,12 @@ static Util::Config::Node DefaultConfig()
   // Platform-specific/UI
   config.Set("New3DEngine", true);
   config.Set("QuadRendering", false);
-  config.Set("XResolution", "496");
-  config.Set("YResolution", "384");
+  config.Set("XResolution", "640");
+  config.Set("YResolution", "480");
   config.SetEmpty("WindowXPosition");
   config.SetEmpty("WindowYPosition");
   config.Set("FullScreen", false);
-  config.Set("BorderlessWindow", false);
+  config.Set("BorderlessWindow", true);
   config.Set("Supersampling", 1);
   config.Set("WideScreen", false);
   config.Set("Stretch", false);
@@ -1500,7 +1505,7 @@ static Util::Config::Node DefaultConfig()
   config.Set("CrosshairStyle", "vector");
   config.Set("FlipStereo", false);
 #ifdef SUPERMODEL_WIN32
-  config.Set("InputSystem", "dinput");
+  config.Set("InputSystem", "sdl");
   // DirectInput ForceFeedback
   config.Set("DirectInputConstForceLeftMax", "100");
   config.Set("DirectInputConstForceRightMax", "100");
@@ -1539,6 +1544,8 @@ static Util::Config::Node DefaultConfig()
   config.Set("DumpTextures", false);
   return config;
 }
+
+#define puts(...) do { OutputDebugString(__VA_ARGS__); OutputDebugString(""); } while (0)
 
 static void Title(void)
 {
@@ -1666,8 +1673,9 @@ struct ParsedCommandLine
   }
 };
 
-static ParsedCommandLine ParseCommandLine(int argc, char **argv)
+static ParsedCommandLine ParseCommandLine(const std::vector<std::string>& argv)
 {
+    size_t argc = argv.size();
   ParsedCommandLine cmd_line;
   const std::map<std::string, std::string> valued_options
   { // -option=value
@@ -1900,18 +1908,25 @@ static ParsedCommandLine ParseCommandLine(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
+  std::vector<std::string> args;
   Title();
   if (argc <= 1)
   {
+#ifdef __WINRT__
+      std::string path = UWP::pick_a_file();
+      args.push_back("");
+      args.push_back(path);
+#else
     Help();
     return 0;
+#endif
   }
 
   // Before command line is parsed, console logging only
   SetLogger(std::make_shared<CConsoleErrorLogger>());
 
   // Load config and parse command line
-  auto cmd_line = ParseCommandLine(argc, argv);
+  auto cmd_line = ParseCommandLine(args);
   if (cmd_line.error)
   {
     return 1;
@@ -2011,6 +2026,13 @@ int main(int argc, char **argv)
     exitCode = 1;
     goto Exit;
   }
+
+#ifdef __WINRT__
+  s_runtime_config.Get("XResolution").SetValue(totalXRes);
+  s_runtime_config.Get("YResolution").SetValue(totalYRes);
+#endif
+
+
 
   // Create Crosshair
   s_crosshair = new CCrosshair(s_runtime_config);

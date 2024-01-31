@@ -47,6 +47,7 @@
 static std::array<const char *, 3> s_xinput_dlls = { TEXT("xinput1_4.dll"), TEXT("xinput1_3.dll"), TEXT("xinput9_1_0.dll") };
 static std::array<const char *, 3> s_xinput_dlls_a = { "xinput1_4.dll", "xinput1_3.dll", "xinput9_1_0.dll" };
 
+#ifndef _XBOX_UWP
 // TODO - need to double check these all correct and see if can fill in any missing codes (although most just don't exist)
 DIKeyMapStruct CDirectInputSystem::s_keyMap[] = 
 {
@@ -197,6 +198,7 @@ DIKeyMapStruct CDirectInputSystem::s_keyMap[] =
 	//{ "EURO",				?? },
 	//{ "UNDO",				?? },
 };
+#endif
 
 static bool IsXInputDevice(const GUID &devProdGUID)
 {
@@ -304,6 +306,7 @@ struct DIEnumDevsContext
 	bool useXInput;
 };
 
+#ifndef _XBOX_UWP
 static BOOL CALLBACK DI8EnumDevicesCallback(LPCDIDEVICEINSTANCE instance, LPVOID context)
 {
 	DIEnumDevsContext *diDevsContext = (DIEnumDevsContext*)context;
@@ -317,6 +320,7 @@ static BOOL CALLBACK DI8EnumDevicesCallback(LPCDIDEVICEINSTANCE instance, LPVOID
 	diDevsContext->infos->push_back(info);
 	return DIENUM_CONTINUE;
 }
+#endif
 
 struct DIEnumObjsContext
 {
@@ -325,6 +329,7 @@ struct DIEnumObjsContext
 	bool enumError;
 };
 
+#ifndef _XBOX_UWP
 static BOOL CALLBACK DI8EnumObjectsCallback(LPCDIDEVICEOBJECTINSTANCE instance, LPVOID context)
 {
 	DIEnumObjsContext *diObjsContext = (DIEnumObjsContext*)context;
@@ -419,6 +424,7 @@ static BOOL CALLBACK DI8EnumEffectsCallback(LPCDIEFFECTINFO effectInfo, LPVOID c
 		joyDetails->hasFFeedback = true;
 	return DIENUM_CONTINUE;
 }
+#endif
 
 const char *CDirectInputSystem::ConstructName(bool useRawInput, bool useXInput)
 {
@@ -434,7 +440,10 @@ CDirectInputSystem::CDirectInputSystem(const Util::Config::Node &config, SDL_Win
 	m_useRawInput(useRawInput), m_useXInput(useXInput), m_enableFFeedback(true),
 	m_initializedCOM(false), m_activated(false), m_window(window), m_hwnd(NULL), m_screenW(0), m_screenH(0), 
 	m_getRIDevListPtr(NULL), m_getRIDevInfoPtr(NULL), m_regRIDevsPtr(NULL), m_getRIDataPtr(NULL),
-	m_xiGetCapabilitiesPtr(NULL), m_xiGetStatePtr(NULL), m_xiSetStatePtr(NULL), m_di8(NULL), m_di8Keyboard(NULL), m_di8Mouse(NULL)
+	m_xiGetCapabilitiesPtr(NULL), m_xiGetStatePtr(NULL), m_xiSetStatePtr(NULL) 
+#ifndef _XBOX_UWP
+	,m_di8(NULL), m_di8Keyboard(NULL), m_di8Mouse(NULL)
+#endif
 {
 	// Reset initial states
 	memset(&m_combRawMseState, 0, sizeof(m_combRawMseState));
@@ -444,9 +453,9 @@ CDirectInputSystem::CDirectInputSystem(const Util::Config::Node &config, SDL_Win
 
 CDirectInputSystem::~CDirectInputSystem()
 {
+#ifndef _XBOX_UWP
 	CloseKeyboardsAndMice();
 	CloseJoysticks();
-
 	if (m_di8)
 	{
 		m_di8->Release();
@@ -454,8 +463,10 @@ CDirectInputSystem::~CDirectInputSystem()
 		if (m_initializedCOM)
 			CoUninitialize();
 	}
+#endif
 }
 
+#ifndef _XBOX_UWP
 bool CDirectInputSystem::GetRegString(HKEY regKey, const char *regPath, std::string &str)
 {
 	// Query to get the length
@@ -686,7 +697,7 @@ void CDirectInputSystem::OpenKeyboardsAndMice()
 
 	// If get here then either RawInput disabled or getting its devices failed so default to DirectInput.
 	// Open DirectInput system keyboard and set its data format
-	HRESULT hr;
+	HRESULT hr = ERROR_NOT_FOUND;
 	if (FAILED(hr = m_di8->CreateDevice(GUID_SysKeyboard, &m_di8Keyboard, NULL)))
 	{
 		ErrorLog("Unable to create DirectInput keyboard device (error %d) - key input will be unavailable.\n", hr);
@@ -760,7 +771,6 @@ void CDirectInputSystem::ActivateKeyboardsAndMice()
 			ErrorLog("Unable to register for keyboard and mouse input with RawInput API (error %d) - keyboard and mouse input will be unavailable.\n", GetLastError());
 		return;
 	}
-	
 	// Set DirectInput cooperative level of keyboard and mouse
 	if (m_di8Keyboard != NULL)
 	{
@@ -900,6 +910,7 @@ void CDirectInputSystem::CloseKeyboardsAndMice()
 		m_di8Mouse->Release();
 		m_di8Mouse = NULL;
 	}
+
 }
 
 void CDirectInputSystem::ResetMice()
@@ -927,6 +938,7 @@ void CDirectInputSystem::ResetMice()
 	m_diMseState.y = p.y;
 	m_diMseState.z = 0;
 }
+#endif
 
 void CDirectInputSystem::ProcessRawInput(HRAWINPUT hInput)
 {
@@ -948,6 +960,7 @@ void CDirectInputSystem::ProcessRawInput(HRAWINPUT hInput)
 	// Get data
 	if (m_getRIDataPtr(hInput, RID_INPUT, pBuf, &dwSize, sizeof(RAWINPUTHEADER)) == dwSize)
 	{
+#ifndef _XBOX_UWP
 		RAWINPUT *pData = (RAWINPUT*)pBuf;
 		if (pData->header.dwType == RIM_TYPEKEYBOARD)
 		{
@@ -1061,6 +1074,7 @@ void CDirectInputSystem::ProcessRawInput(HRAWINPUT hInput)
 					m_combRawMseState.buttons |= it->buttons;
 			}
 		}
+#endif
 	}
 
 	if (pBuf != buffer)
@@ -1073,9 +1087,11 @@ void CDirectInputSystem::OpenJoysticks()
 	DIEnumDevsContext diDevsContext;
 	diDevsContext.infos = &m_diJoyInfos;
 	diDevsContext.useXInput = m_useXInput;
+#ifndef _XBOX_UWP
 	HRESULT hr;
 	if (FAILED(hr = m_di8->EnumDevices(DI8DEVCLASS_GAMECTRL, DI8EnumDevicesCallback, &diDevsContext, DIEDFL_ATTACHEDONLY)))
 		return;
+#endif
 
 	// Loop through those found
 	int joyNum = 0;
@@ -1118,6 +1134,7 @@ void CDirectInputSystem::OpenJoysticks()
 		}
 		else 
 		{
+#ifndef _XBOX_UWP
 			// Otherwise, open joystick with DirectInput for given GUID and set its data format
 			LPDIRECTINPUTDEVICE8 joystick;
 			if (FAILED(hr = m_di8->CreateDevice(it->guid, &joystick, NULL)))
@@ -1276,6 +1293,7 @@ void CDirectInputSystem::OpenJoysticks()
 			it->dInputNum = m_di8Joysticks.size();
 
 			m_di8Joysticks.push_back(joystick);
+#endif
 		}
 
 		// Create initial blank joystick state
@@ -1283,7 +1301,7 @@ void CDirectInputSystem::OpenJoysticks()
 		memset(&joyState, 0, sizeof(joyState));
 		for (int povNum = 0; povNum < 4; povNum++)
 			joyState.rgdwPOV[povNum] = -1;
-		
+
 		m_joyDetails.push_back(joyDetails);
 		m_diJoyStates.push_back(joyState);
 	}
@@ -1297,6 +1315,7 @@ void CDirectInputSystem::ActivateJoysticks()
 	{
 		if (!it->isXInput)
 		{	
+#ifndef _XBOX_UWP
 			LPDIRECTINPUTDEVICE8 joystick = m_di8Joysticks[it->dInputNum];
 			joystick->Unacquire();
 			if (m_grabMouse)
@@ -1304,6 +1323,7 @@ void CDirectInputSystem::ActivateJoysticks()
 			else
 				joystick->SetCooperativeLevel(m_hwnd, DISCL_NONEXCLUSIVE | DISCL_BACKGROUND);
 			joystick->Acquire();
+#endif
 		}
 		joyNum++;
 	}
@@ -1315,6 +1335,7 @@ void CDirectInputSystem::PollJoysticks()
 	int i = 0;
 	for (std::vector<DIJoyInfo>::iterator it = m_diJoyInfos.begin(); it != m_diJoyInfos.end(); ++it)
 	{
+
 		LPDIJOYSTATE2 pJoyState = &m_diJoyStates[i++];
 
 		HRESULT hr;
@@ -1370,6 +1391,7 @@ void CDirectInputSystem::PollJoysticks()
 		}
 		else
 		{
+#ifndef _XBOX_UWP
 			// Use DirectInput to query joystick
 			LPDIRECTINPUTDEVICE8 joystick = m_di8Joysticks[it->dInputNum];
 			if (FAILED(hr = joystick->Poll()))
@@ -1387,6 +1409,7 @@ void CDirectInputSystem::PollJoysticks()
 		
 			// Update joystick's DirectInput state
 			joystick->GetDeviceState(sizeof(DIJOYSTATE2), pJoyState);
+#endif
 		}
 	}
 }
@@ -1400,28 +1423,35 @@ void CDirectInputSystem::CloseJoysticks()
 		{
 			for (unsigned effNum = 0; effNum < NUM_FF_EFFECTS; effNum++)
 			{
+#ifndef _XBOX_UWP
 				if (it->dInputEffects[axisNum][effNum] != NULL)
 				{
 					it->dInputEffects[axisNum][effNum]->Release();
 					it->dInputEffects[axisNum][effNum] = NULL;
 				}
+#endif
 			}
 		}
 	}
 
 	// Release each DirectInput joystick
+#ifndef _XBOX_UWP
 	for (std::vector<LPDIRECTINPUTDEVICE8>::iterator it = m_di8Joysticks.begin(); it != m_di8Joysticks.end(); ++it)
 	{
 		(*it)->Unacquire();
 		(*it)->Release();
 	}
+#endif
 
 	m_joyDetails.clear();
 	m_diJoyInfos.clear();
 	m_diJoyStates.clear();
+#ifndef _XBOX_UWP
 	m_di8Joysticks.clear();
+#endif
 }
 
+#ifndef _XBOX_UWP
 HRESULT CDirectInputSystem::CreateJoystickEffect(LPDIRECTINPUTDEVICE8 joystick, int axisNum, ForceFeedbackCmd ffCmd, LPDIRECTINPUTEFFECT *pEffect)
 {
 	// Map axis number to DI object offset
@@ -1528,6 +1558,7 @@ HRESULT CDirectInputSystem::CreateJoystickEffect(LPDIRECTINPUTDEVICE8 joystick, 
 	(*pEffect)->Start(1, 0);
 	return S_OK;
 }
+#endif
 
 void CDirectInputSystem::LoadXInputDLL()
 {
@@ -1560,6 +1591,7 @@ bool CDirectInputSystem::InitializeSystem()
 {
 	if (m_useRawInput)
 	{
+#ifndef _XBOX_UWP
 		// Dynamically load RawInput API
 		HMODULE user32 = LoadLibrary(TEXT("user32.dll"));
 		if (user32 != NULL)
@@ -1586,6 +1618,7 @@ bool CDirectInputSystem::InitializeSystem()
 			m_screenH = settings.dmPelsHeight;
 		}
 		else
+#endif
 			ErrorLog("Unable to initialize RawInput API (library hooks are not available) - switching to DirectInput.\n");
 	}
 
@@ -1596,6 +1629,7 @@ bool CDirectInputSystem::InitializeSystem()
 		
 	}
 
+#ifndef _XBOX_UWP
 	// Dynamically create DirectInput8 via COM, rather than statically linking to dinput8.dll
 	// TODO - if fails, try older versions of DirectInput
 	HRESULT hr;
@@ -1632,11 +1666,12 @@ bool CDirectInputSystem::InitializeSystem()
 
 	// Open all devices
 	OpenKeyboardsAndMice();
+#endif
 	OpenJoysticks();
-
 	return true;
 }
 
+#ifndef _XBOX_UWP
 int CDirectInputSystem::GetKeyIndex(const char *keyName)
 {
 	for (int i = 0; i < NUM_DI_KEYS; i++)
@@ -1731,6 +1766,7 @@ bool CDirectInputSystem::IsMouseButPressed(int mseNum, int butNum)
 	else if (butNum == 2) butNum = 1;
 	return (butNum < 5 ? !!(m_diMseState.buttons[butNum] & 0x80) : false);
 }
+#endif
 
 int CDirectInputSystem::GetJoyAxisValue(int joyNum, int axisNum)
 {
@@ -1864,6 +1900,8 @@ bool CDirectInputSystem::ProcessForceFeedbackCmd(int joyNum, int axisNum, ForceF
 	}
 	else
 	{
+		return ERROR_NOT_FOUND;
+#ifndef _XBOX_UWP
 		LPDIRECTINPUTDEVICE8 joystick = m_di8Joysticks[pInfo->dInputNum];
 
 		// See if command is to stop all force feedback, if so send appropriate command
@@ -1982,9 +2020,11 @@ bool CDirectInputSystem::ProcessForceFeedbackCmd(int joyNum, int axisNum, ForceF
 
 		// Set the new parameters and start effect immediately
 		return SUCCEEDED(hr = (*pEffect)->SetParameters(&eff, DIEP_DIRECTION | DIEP_TYPESPECIFICPARAMS | DIEP_START));
+#endif
 	}
 }
 
+#ifndef _XBOX_UWP
 bool CDirectInputSystem::ConfigMouseCentered()
 {
 	// When checking if mouse centered, use system cursor rather than raw values (otherwise user's mouse movements won't match up
@@ -2025,13 +2065,15 @@ int CDirectInputSystem::GetNumMice()
 	// If RawInput enabled, then return number of mice found.  Otherwise, return ANY_MOUSE as DirectInput cannot handle multiple keyboards
 	return (m_useRawInput ? m_rawMice.size() : ANY_MOUSE);
 }
-	
+#endif
+
 int CDirectInputSystem::GetNumJoysticks()
 {
 	// Return number of joysticks found
 	return m_diJoyInfos.size();
 }
 
+#ifndef _XBOX_UWP
 const KeyDetails *CDirectInputSystem::GetKeyDetails(int kbdNum)
 {
 	// If RawInput enabled, then return details for given keyboard.  Otherwise, return NULL as DirectInput cannot handle multiple keyboards
@@ -2043,6 +2085,7 @@ const MouseDetails *CDirectInputSystem::GetMouseDetails(int mseNum)
 	// If RawInput enabled, then return details of given mouse.  Otherwise, return NULL as DirectInput cannot handle multiple keyboards
 	return (m_useRawInput ? &m_mseDetails[mseNum] : NULL);
 }
+#endif
 
 const JoyDetails *CDirectInputSystem::GetJoyDetails(int joyNum)
 {
@@ -2057,17 +2100,21 @@ bool CDirectInputSystem::Poll()
 		// If not, then get Window handle of SDL window
 		SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
+#ifndef _XBOX_UWP
     if (SDL_GetWindowWMInfo(m_window, &info))
     {
   			m_hwnd = info.info.win.window;
     }
+#endif
 		
 		// Tell SDL to pass on all Windows events
 		// Removed - see below
 		//SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
 
 		// Activate the devices now that a Window handle is available
+#ifndef _XBOX_UWP
 		ActivateKeyboardsAndMice();
+#endif
 		ActivateJoysticks();
 
 		m_activated = true;
@@ -2088,6 +2135,7 @@ bool CDirectInputSystem::Poll()
 		}
 	}*/
 
+#ifndef _XBOX_UWP
 	// Wait or poll for event on Windows message queue (done this way instead of using SDL_PollEvent as above because
 	// for some reason this causes RawInput HRAWINPUT handles to arrive stale.  Not sure what SDL_PollEvent is doing to cause this
 	// but the following code can replace it without any problems as it is effectively what SDL_PollEvent does anyway)
@@ -2109,7 +2157,7 @@ bool CDirectInputSystem::Poll()
 			DispatchMessage(&msg);
 		}
 	}
-
+#endif
 	// SDL2: I'm not sure how the SDL1.x code was detecting quit events but in
   // SDL2, it seems that we want to explicitly run SDL_PollEvent() after we
   // have peeked at the message queue ourselves (above).
@@ -2122,12 +2170,15 @@ bool CDirectInputSystem::Poll()
 	}
 
 	// Poll keyboards, mice and joysticks
+#ifndef _XBOX_UWP
 	PollKeyboardsAndMice();
+#endif
 	PollJoysticks();
 
 	return true;
 }
 
+#ifndef _XBOX_UWP
 void CDirectInputSystem::SetMouseVisibility(bool visible)
 {
 	if (m_useRawInput)
@@ -2162,3 +2213,5 @@ void CDirectInputSystem::UngrabMouse()
 		ActivateJoysticks();
 	}
 }
+#endif
+

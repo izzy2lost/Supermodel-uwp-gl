@@ -402,13 +402,21 @@ void CSDLInputSystem::CloseJoysticks()
 bool CSDLInputSystem::InitializeSystem()
 {
   // Make sure joystick subsystem is initialized and joystick events are enabled
+#ifdef __XBOXSERIES__
+    if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) != 0)
+#else
   if (SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_HAPTIC) != 0)
+#endif
   {
     ErrorLog("Unable to initialize SDL joystick subsystem (%s).\n", SDL_GetError());
 
     return false;
   }
   SDL_JoystickEventState(SDL_ENABLE);
+
+#ifdef __WINRT__
+  SDL_Delay(500);
+#endif
 
   // Open attached joysticks
   OpenJoysticks();

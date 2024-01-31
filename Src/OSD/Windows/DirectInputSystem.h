@@ -37,7 +37,43 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#ifndef _XBOX_UWP
 #include <dinput.h>
+#endif
+
+typedef struct DIJOYSTATE2 {
+	LONG    lX;                     /* x-axis position              */
+	LONG    lY;                     /* y-axis position              */
+	LONG    lZ;                     /* z-axis position              */
+	LONG    lRx;                    /* x-axis rotation              */
+	LONG    lRy;                    /* y-axis rotation              */
+	LONG    lRz;                    /* z-axis rotation              */
+	LONG    rglSlider[2];           /* extra axes positions         */
+	DWORD   rgdwPOV[4];             /* POV directions               */
+	BYTE    rgbButtons[128];        /* 128 buttons                  */
+	LONG    lVX;                    /* x-axis velocity              */
+	LONG    lVY;                    /* y-axis velocity              */
+	LONG    lVZ;                    /* z-axis velocity              */
+	LONG    lVRx;                   /* x-axis angular velocity      */
+	LONG    lVRy;                   /* y-axis angular velocity      */
+	LONG    lVRz;                   /* z-axis angular velocity      */
+	LONG    rglVSlider[2];          /* extra axes velocities        */
+	LONG    lAX;                    /* x-axis acceleration          */
+	LONG    lAY;                    /* y-axis acceleration          */
+	LONG    lAZ;                    /* z-axis acceleration          */
+	LONG    lARx;                   /* x-axis angular acceleration  */
+	LONG    lARy;                   /* y-axis angular acceleration  */
+	LONG    lARz;                   /* z-axis angular acceleration  */
+	LONG    rglASlider[2];          /* extra axes accelerations     */
+	LONG    lFX;                    /* x-axis force                 */
+	LONG    lFY;                    /* y-axis force                 */
+	LONG    lFZ;                    /* z-axis force                 */
+	LONG    lFRx;                   /* x-axis torque                */
+	LONG    lFRy;                   /* y-axis torque                */
+	LONG    lFRz;                   /* z-axis torque                */
+	LONG    rglFSlider[2];          /* extra axes forces            */
+} DIJOYSTATE2, * LPDIJOYSTATE2;
+
 #include <XInput.h>
 #include <functional>
 
@@ -80,9 +116,10 @@ struct DIJoyInfo
 {
 	// DirectInput details
 	GUID guid;
+#ifndef _XBOX_UWP
 	int dInputNum;
 	LPDIRECTINPUTEFFECT dInputEffects[NUM_JOY_AXES][NUM_FF_EFFECTS];
-
+#endif
 	// XInput details
 	bool isXInput;  // True if joystick is XInput controller
 	int xInputNum;  // XInput controller number
@@ -153,10 +190,12 @@ private:
 	XInputSetStatePtr m_xiSetStatePtr;
 
 	// DirectInput pointers and details
+#ifndef _XBOX_UWP
 	LPDIRECTINPUT8 m_di8;
 	LPDIRECTINPUTDEVICE8 m_di8Keyboard;
 	LPDIRECTINPUTDEVICE8 m_di8Mouse;	
 	std::vector<LPDIRECTINPUTDEVICE8> m_di8Joysticks;
+#endif
 	
 	// DirectInput keyboard and mouse states
 	BYTE m_diKeyState[256];
@@ -166,6 +205,7 @@ private:
 	std::vector<DIJoyInfo> m_diJoyInfos;
 	std::vector<DIJOYSTATE2> m_diJoyStates;
 
+#ifndef _XBOX_UWP
 	bool GetRegString(HKEY regKey, const char *regPath, std::string &str);
 
 	bool GetRegDeviceName(const char *rawDevName, char *name);
@@ -179,6 +219,7 @@ private:
 	void CloseKeyboardsAndMice();
 
 	void ResetMice();
+#endif
 
 	void ProcessRawInput(HRAWINPUT hInput);
 
@@ -189,9 +230,9 @@ private:
 	void PollJoysticks();
 
 	void CloseJoysticks();
-
+#ifndef _XBOX_UWP
 	HRESULT CreateJoystickEffect(LPDIRECTINPUTDEVICE8 di8Joystick, int axisNum, ForceFeedbackCmd ffCmd, LPDIRECTINPUTEFFECT *di8Effect);
-
+#endif
 	void LoadXInputDLL();
 
 protected:
@@ -199,7 +240,7 @@ protected:
 	 * Initializes the DirectInput input system.
 	 */
 	bool InitializeSystem();
-
+#ifndef _XBOX_UWP
 	int GetKeyIndex(const char *keyName);
 
 	const char *GetKeyName(int keyIndex);
@@ -211,7 +252,19 @@ protected:
 	int GetMouseWheelDir(int mseNum);
 
 	bool IsMouseButPressed(int mseNum, int butNum);
+#else
+	int GetKeyIndex(const char* keyName) { return -1; }
 
+	const char* GetKeyName(int keyIndex) { return NULL; }
+
+	bool IsKeyPressed(int joyNum, int keyIndex) { return false; }
+
+	int GetMouseAxisValue(int mseNum, int axisNum) { return 0; }
+
+	int GetMouseWheelDir(int mseNum) { return -1; }
+
+	bool IsMouseButPressed(int mseNum, int butNum) { return false; }
+#endif
 	int GetJoyAxisValue(int joyNum, int axisNum);
 
 	bool IsJoyPOVInDir(int joyNum, int povNum, int povDir);
@@ -219,10 +272,11 @@ protected:
 	bool IsJoyButPressed(int joyNum, int butNum);
 	
 	bool ProcessForceFeedbackCmd(int joyNum, int axisNum, ForceFeedbackCmd ffCmd);
-
+#ifndef _XBOX_UWP
 	bool ConfigMouseCentered();
 
 	CInputSource *CreateAnyMouseSource(EMousePart msePart);
+#endif
 
 public:
 	/*
@@ -240,26 +294,37 @@ public:
 	CDirectInputSystem(const Util::Config::Node &config, SDL_Window *window, bool useRawInput, bool useXInput);
 
 	~CDirectInputSystem();
-
+#ifndef _XBOX_UWP
 	int GetNumKeyboards();	
 
 	int GetNumMice();
-	
-	int GetNumJoysticks();
+#else
+	int GetNumKeyboards() { return 0; }
 
+	int GetNumMice() { return 0; } 
+#endif
+	int GetNumJoysticks();
+#ifndef _XBOX_UWP
 	const KeyDetails *GetKeyDetails(int kbdNum);
 
 	const MouseDetails *GetMouseDetails(int mseNum);
+#else
+	const KeyDetails* GetKeyDetails(int kbdNum) { return NULL; }
 
+	const MouseDetails* GetMouseDetails(int mseNum) { return NULL; }
+#endif
 	const JoyDetails *GetJoyDetails(int joyNum);
 
 	bool Poll();
-
+#ifndef _XBOX_UWP
 	void GrabMouse();
 
 	void UngrabMouse();
 
 	void SetMouseVisibility(bool visible);
+#else
+	void SetMouseVisibility(bool visible) {}
+#endif
 };
 
 #endif	// INCLUDED_DIRECTINPUTSYSTEM_H

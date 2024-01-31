@@ -54,14 +54,17 @@ CWinOutputs::CWinOutputs() : m_hwnd(NULL)
 
 CWinOutputs::~CWinOutputs()
 {
+#ifndef _XBOX_UWP
 	// Broadcast a shutdown message
 	if (m_hwnd)
 		PostMessage(HWND_BROADCAST, m_onStop, (WPARAM)m_hwnd, 0);
 	DeleteWindowClass();
+#endif
 }
 
 bool CWinOutputs::Initialize()
 {
+#ifndef _XBOX_UWP
 	// Create window class
 	if (!CreateWindowClass())
 	{
@@ -96,36 +99,45 @@ bool CWinOutputs::Initialize()
 
 	// Set pointer to this object
 	SetWindowLongPtr(m_hwnd, GWLP_USERDATA, (LONG_PTR)this);
+#endif
 	return true;
 }
 
 void CWinOutputs::Attached()
 {
+#ifndef _XBOX_UWP
 	// Broadcast a startup message
 	PostMessage(HWND_BROADCAST, m_onStart, (WPARAM)m_hwnd, 0);
+#endif
 }
 
 void CWinOutputs::SendOutput(EOutputs output, UINT8 prevValue, UINT8 value)
 {
+#ifndef _XBOX_UWP
 	//printf("LAMP OUTPUT %s = %u -> %u\n", GetOutputName(output), prevValue, value);
 	
 	// Loop through all registered clients and send them new output value
 	LPARAM param = (LPARAM)output + 1;
 	for (vector<RegisteredClient>::iterator it = m_clients.begin(), end = m_clients.end(); it != end; ++it)
 		PostMessage(it->hwnd, m_updateState, param, value);
+#endif
 }
 
 LRESULT CALLBACK CWinOutputs::OutputWindowProcCallback(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+#ifndef _XBOX_UWP
 	LONG_PTR ptr = GetWindowLongPtr(hwnd, GWLP_USERDATA);
 	CWinOutputs *outputs = (CWinOutputs*)ptr;
 	if (!outputs)
 		return 1;
 	return outputs->OutputWindowProc(hwnd, msg, wParam, lParam);
+#endif
+	return 1;
 }
 
 bool CWinOutputs::CreateWindowClass()
 {
+#ifndef _XBOX_UWP
 	if (s_createdClass)
 		return true;
 
@@ -141,11 +153,12 @@ bool CWinOutputs::CreateWindowClass()
 		s_createdClass = true;
 		return true;
 	}
-	
+#endif
 	return false;
 }
 bool CWinOutputs::DeleteWindowClass()
 {
+#ifndef _XBOX_UWP
 	if (!s_createdClass)
 		return true;
 
@@ -154,29 +167,35 @@ bool CWinOutputs::DeleteWindowClass()
 		s_createdClass = false;
 		return true;
 	}
-
+#endif
 	return false;
 }
 bool CWinOutputs::AllocateMessageId(UINT &regId, LPCSTR str)
 {
+#ifndef _XBOX_UWP
 	regId = RegisterWindowMessage(str);
 	if (regId != 0)
 		return true;
 	ErrorLog("Unable to register window message '%s' for Windows outputs", str);
+#endif
 	return false;
 }
 
 LRESULT CWinOutputs::OutputWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+#ifndef _XBOX_UWP
 	// Process message sent to emulator window
 	if      (msg == m_regClient)   return RegisterClient((HWND)wParam, lParam);
 	else if (msg == m_unregClient) return UnregisterClient((HWND)wParam, lParam);
 	else if (msg == m_getIdString) return SendIdString((HWND)wParam, lParam);
 	else                           return DefWindowProc(hwnd, msg, wParam, lParam);
+#endif
+	return 0;
 }
 
 LRESULT CWinOutputs::RegisterClient(HWND hwnd, LPARAM id)
 {
+#ifndef _XBOX_UWP
 	// Check that given client is not already registered
 	for (vector<RegisteredClient>::iterator it = m_clients.begin(), end = m_clients.end(); it != end; ++it)
 	{
@@ -197,11 +216,13 @@ LRESULT CWinOutputs::RegisterClient(HWND hwnd, LPARAM id)
 	m_clients.push_back(client);
 
 	SendAllToClient(client);
+#endif
 	return 0;
 }
 
 void CWinOutputs::SendAllToClient(RegisteredClient &client)
 {
+#ifndef _XBOX_UWP
 	// Loop through all known outputs and send their current state to given client
 	for (unsigned i = 0; i < NUM_OUTPUTS; i++)
 	{
@@ -209,12 +230,14 @@ void CWinOutputs::SendAllToClient(RegisteredClient &client)
 		LPARAM param = (LPARAM)output + 1;
 		PostMessage(client.hwnd, m_updateState, param, GetValue(output));
 	}
+#endif
 }
 
 LRESULT CWinOutputs::UnregisterClient(HWND hwnd, LPARAM id)
 {
 	// Find any matching clients and remove them
 	bool found = false;
+#ifndef _XBOX_UWP
 	vector<RegisteredClient>::iterator it = m_clients.begin();
 	while (it != m_clients.end())
 	{
@@ -228,11 +251,13 @@ LRESULT CWinOutputs::UnregisterClient(HWND hwnd, LPARAM id)
 	}
 
 	// Return error if no matches found
+#endif
 	return (found ? 0 : 1);
 }
 
 LRESULT CWinOutputs::SendIdString(HWND hwnd, LPARAM id)
 {
+#ifndef _XBOX_UWP
 	// Id 0 is the name of the game
 	std::string name;
 	if (id == 0)
@@ -256,6 +281,7 @@ LRESULT CWinOutputs::SendIdString(HWND hwnd, LPARAM id)
 	SendMessage(hwnd, WM_COPYDATA, (WPARAM)m_hwnd, (LPARAM)&copyData);
 
 	delete[] data;
+#endif
 	return 0;
 }
 

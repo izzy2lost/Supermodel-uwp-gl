@@ -201,19 +201,25 @@ void CConsoleErrorLogger::DebugLog(const char *fmt, va_list vl)
 {
   // To view debug-level logging on the console, use a file logger writing
   // to stdout
+    //char  string[4096];
+    //vsprintf(string, fmt, vl);
+    //OutputDebugString(string);
 }
 
 void CConsoleErrorLogger::InfoLog(const char *fmt, va_list vl)
 {
   // To view info-level logging on the console, use a file logger writing
   // to stdout
+    //char  string[4096];
+    //vsprintf(string, fmt, vl);
+    //OutputDebugString(string);
 }
 
 void CConsoleErrorLogger::ErrorLog(const char *fmt, va_list vl)
 {
-  char  string[4096];
-  vsprintf(string, fmt, vl);
-  fprintf(stderr, "Error: %s\n", string);
+    char  string[4096];
+    vsprintf(string, fmt, vl);
+    OutputDebugString(string);
 }
 
 /*
