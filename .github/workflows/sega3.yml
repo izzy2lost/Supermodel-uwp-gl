@@ -27,7 +27,7 @@ jobs:
 
       - name: Add MSYS2 to PATH
         run: echo "C:\\msys64\\mingw64\\bin" >> $GITHUB_PATH
-      
+
       - name: Generate Self-Signed Certificate
         id: cert
         run: |
@@ -39,12 +39,15 @@ jobs:
       - name: Install NuGet
         uses: NuGet/setup-nuget@v2
 
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1
+
       - name: Restore NuGet Packages
-        run: nuget restore UWP/Supermodel.sln
+        run: nuget restore UWP/SuperModelUWP/SuperModelUWP.vcxproj
 
       - name: Build UWP Project
         run: |
-          msbuild UWP/Supermodel.sln /m /p:PlatformToolset=v143 /p:Platform=x64 /p:Configuration="Release" /p:AppxPackageSigningEnabled=true /p:PackageCertificateThumbprint="$env:THUMBPRINT" /t:restore,build /p:RestorePackagesConfig=true
+          msbuild UWP/SuperModelUWP/SuperModelUWP.vcxproj /m /p:PlatformToolset=v143 /p:Platform=x64 /p:Configuration="Release" /p:AppxPackageSigningEnabled=true /p:PackageCertificateThumbprint="$env:THUMBPRINT" /t:restore,build /p:RestorePackagesConfig=true
 
       - name: Upload Builds
         uses: actions/upload-artifact@v4
