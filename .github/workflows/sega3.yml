@@ -31,14 +31,12 @@ jobs:
       - name: Download and Extract SDL
         run: |
           curl -L -o SDL.zip https://github.com/libsdl-org/SDL/archive/refs/tags/release-2.28.5.zip
-          mkdir -p Libraries
-          tar -xf SDL.zip --strip-components=1 -C Libraries
+          unzip SDL.zip -d Libraries/
       
       - name: Download and Extract SDL_net
         run: |
           curl -L -o SDL_net.zip https://github.com/libsdl-org/SDL_net/archive/refs/tags/release-2.2.0.zip
-          mkdir -p Libraries
-          tar -xf SDL_net.zip --strip-components=1 -C Libraries
+          unzip SDL_net.zip -d Libraries/
 
       - name: Generate Self-Signed Certificate
         id: cert
