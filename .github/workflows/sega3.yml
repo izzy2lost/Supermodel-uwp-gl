@@ -1,0 +1,41 @@
+name: Supermodel Builder
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # MSBUILD
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+          
+      - name: Generate Self-Signed Certificate
+        id: cert
+        run: |
+          $cert = New-SelfSignedCertificate -CertStoreLocation "Cert:\CurrentUser\My" -Subject "CN=MyUWPCert" -KeyAlgorithm RSA -KeyLength 2048 -Provider "Microsoft Enhanced RSA and AES Cryptographic Provider" -KeyExportPolicy Exportable -NotAfter (Get-Date).AddYears(1)
+          $thumbprint = $cert.Thumbprint
+          echo "THUMBPRINT=$thumbprint" >> $GITHUB_ENV
+        shell: pwsh
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet.exe
+        uses: NuGet/setup-nuget@v2
+        with:
+          nuget-version: latest  
+
+      - name: Build project
+        run: |
+          msbuild UWP/Supermodel.sln /m /p:PlatformToolset=v143 /p:Platform=x64 /p:Configuration="Release" /p:AppxPackageSigningEnabled=true /p:PackageCertificateThumbprint="$env:THUMBPRINT" /t:restore,build /p:RestorePackagesConfig=true
+
+      - name: Upload Builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: XBSX2.0 Nightly Build (AVX2)
+          path: AppPackages/Supermodel-uwp-gl/
