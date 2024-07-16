@@ -52,7 +52,7 @@ jobs:
         run: |
           msbuild /restore `
             "$env:SolutionPath" `
-            /target:SuperModelUWP `
+            /target:Musashi68K;SDL2-UWP;SDL2_net;SuperModelUWP `
             /p:Platform=$env:Platform `
             /p:Configuration=$env:Configuration `
             /p:UapAppxPackageBuildMode=$env:BuildMode `
