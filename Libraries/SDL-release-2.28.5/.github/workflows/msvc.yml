@@ -1,0 +1,73 @@
+name: Build SDL mesa
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag Name'
+        required: true
+        default: 'v1.0.0'
+      package_name:
+        description: 'Package Name'
+        required: true
+        default: 'Xbox_Linux'
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    env:
+      SolutionPath: VisualC-WinRT/SDL-UWP.sln
+      Platform: x64
+      Configuration: Release
+      BuildMode: SideLoadOnly
+      AppxBundle: Never
+      ProjectPath: VisualC-WinRT/SDL-UWP.vcxproj
+      ProjectDirectory: ./SDL-UWP 
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1
+
+      - name: Generate Self-Signed Certificate
+        id: generate_cert
+        run: |
+          $cert = New-SelfSignedCertificate -CertStoreLocation "Cert:\CurrentUser\My" -Subject "CN=MyUWPCert" -KeyAlgorithm RSA -KeyLength 2048 -Provider "Microsoft Enhanced RSA and AES Cryptographic Provider" -KeyExportPolicy Exportable -NotAfter (Get-Date).AddYears(1) -Type CodeSigningCert
+          echo "THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Set Package Name
+        id: set_package_name
+        run: |
+          echo "PACKAGE_NAME=${{ github.event.inputs.package_name }}_${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+
+      - name: App Build
+        run: |
+          msbuild /restore `
+            "$env:SolutionPath" `
+            /p:Platform=$env:Platform `
+            /p:Configuration=$env:Configuration `
+            /p:UapAppxPackageBuildMode=$env:BuildMode `
+            /p:AppxBundle=$env:AppxBundle `
+            /p:PackageCertificateThumbprint="${{ env.THUMBPRINT }}" `
+            /p:RestorePackagesConfig=true
+        shell: pwsh
+
+      - name: Archive Build Output
+        run: |
+          $outputDir = "C:\BuildOutput"
+          mkdir $outputDir
+          Copy-Item -Path .\* -Destination $outputDir -Recurse -Force
+          Compress-Archive -Path "$outputDir\*" -DestinationPath "$outputDir\${{ env.PACKAGE_NAME }}.zip"
+        shell: pwsh
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: SDL-UWP-Build
+          path: C:\BuildOutput\${{ env.PACKAGE_NAME }}.zip
